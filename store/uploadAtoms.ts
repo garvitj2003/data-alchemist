@@ -17,3 +17,16 @@ export const validationReadyAtom = atom((get) => {
     typesUploaded.has(t)
   );
 });
+export type CellErrorMap = {
+  [fieldName: string]: string; // e.g., "Duration": "Must be ≥ 1"
+};
+
+export type RowErrorMap = {
+  [rowIndex: number]: CellErrorMap;
+};
+
+export type ValidationErrors = {
+  [entity in EntityType]?: RowErrorMap;
+};
+
+export const validationErrorsAtom = atom<ValidationErrors>({});

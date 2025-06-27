@@ -1,4 +1,4 @@
-import { EntityTable } from "@/components/tables/entityTable";
+import  EntityTable  from "@/components/tables/entityTable";
 
 export default function ValidatePage() {
   return (

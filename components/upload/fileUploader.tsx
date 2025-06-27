@@ -2,18 +2,21 @@
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useSetAtom, useAtomValue, useAtom } from "jotai";
+import { useAtomValue, useAtom } from "jotai";
 import {
   uploadedFilesAtom,
   validationReadyAtom,
   EntityType,
+  validationErrorsAtom,
 } from "@/store/uploadAtoms";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { useRouter } from "next/navigation";
 import { validateAllFiles } from "@/lib/validators";
+import { normalizeRowTypes } from "@/utils/normalizeData";
 
 export default function FileUploader() {
+  const [, setErrors] = useAtom(validationErrorsAtom);
   const [uploadedFiles, setUploadedFiles] = useAtom(uploadedFilesAtom);
   const isReady = useAtomValue(validationReadyAtom);
   const router = useRouter();
@@ -25,7 +28,6 @@ export default function FileUploader() {
     reader.onload = async (e) => {
       const result = e.target?.result;
       let parsedData: any[] = [];
-
       if (!result) return;
 
       if (ext === "csv") {
@@ -33,11 +35,16 @@ export default function FileUploader() {
           header: true,
           skipEmptyLines: true,
         });
-        parsedData = parsed.data as any[];
+        const raw = parsed.data as Record<string, any>[];
+        parsedData = raw.map((row) => normalizeRowTypes(entityType, row));
       } else {
         const workbook = XLSX.read(result, { type: "binary" });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        parsedData = XLSX.utils.sheet_to_json(sheet);
+        parsedData = XLSX.utils
+          .sheet_to_json(sheet)
+          .map((row) =>
+            normalizeRowTypes(entityType, row as Record<string, any>)
+          );
       }
 
       // Remove old data of same entity before pushing new
@@ -59,12 +66,11 @@ export default function FileUploader() {
   };
 
   const handleValidateAndContinue = () => {
-    const passed = validateAllFiles(uploadedFiles);
-    if (passed) {
-      router.push("/validate");
-    } else {
-      alert("Validation failed! Please fix the issues and try again.");
-    }
+    const errors = validateAllFiles(uploadedFiles);
+    setErrors(errors); // ✅ store errors in atom
+
+    // Always navigate to /validate page
+    router.push("/validate");
   };
 
   return (

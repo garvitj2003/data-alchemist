@@ -1,69 +1,73 @@
 "use client";
 
-import { useAtomValue } from "jotai";
-import { uploadedFilesAtom, EntityType } from "@/store/uploadAtoms";
-import { Card, CardContent } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Input } from "@/components/ui/input";
+import React from "react";
+import { useAtom } from "jotai";
+import {
+  uploadedFilesAtom,
+  validationErrorsAtom,
+  EntityType,
+} from "@/store/uploadAtoms";
+import { DataGrid, Column } from "react-data-grid";
+import "react-data-grid/lib/styles.css";
+import "../../app/globals.css";
 
-type Props = {
+type EntityTableProps = {
   entity: EntityType;
 };
 
-export function EntityTable({ entity }: Props) {
-  const uploadedFiles = useAtomValue(uploadedFilesAtom);
-  const data = uploadedFiles.find((f) => f.entityType === entity)?.rawData || [];
+export default function EntityTable({ entity }: EntityTableProps) {
+  const [files, setFiles] = useAtom(uploadedFilesAtom);
+  const [errors] = useAtom(validationErrorsAtom);
 
-  if (data.length === 0) {
-    return (
-      <Card className="p-4">
-        <p className="text-muted-foreground">No data found for {entity}.</p>
-      </Card>
+  const file = files.find((f) => f.entityType === entity);
+  if (!file) return <div>No data found for {entity}</div>;
+
+  const rows = file.rawData;
+
+  const columns: Column<any>[] = Object.keys(rows[0] || {}).map((col) => ({
+    key: col,
+    name: col,
+    editable: true,
+    // Highlight cells with error and show tooltip
+    renderCell: (props) => {
+      const rowIdx = props.rowIdx;
+      const error = errors?.[entity]?.[rowIdx]?.[col];
+
+      return (
+        <div
+          className={`w-full h-full px-2 py-1 ${
+            error ? "bg-red-100 text-red-600" : ""
+          }`}
+          title={error || ""}
+        >
+          {props.row[col]}
+        </div>
+      );
+    },
+  }));
+
+  const onRowsChange = (newRows: any, { indexes }: any) => {
+    const updatedRows = [...newRows];
+
+    setFiles((prev) =>
+      prev.map((f) =>
+        f.entityType === entity ? { ...f, rawData: updatedRows } : f
+      )
     );
-  }
 
-  const columns = Object.keys(data[0]);
+    // TODO: Re-run validation for changed row and update validationErrorsAtom
+    // Optional enhancement you can add later
+  };
 
   return (
-    <Card className="border rounded-xl">
-      <CardContent className="p-4">
-        <h2 className="text-lg font-semibold capitalize mb-4">{entity} Table</h2>
-        <ScrollArea className="max-h-[500px] w-full overflow-auto border rounded-md">
-          <table className="w-full text-sm border-collapse">
-            <thead className="sticky top-0 bg-muted z-10">
-              <tr>
-                {columns.map((col) => (
-                  <th
-                    key={col}
-                    className="border px-4 py-2 text-left font-medium"
-                  >
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((row, rowIndex) => (
-                <tr key={rowIndex} className="even:bg-muted/40">
-                  {columns.map((col) => (
-                    <td key={col} className="border px-4 py-1">
-                      <Input
-                        type="text"
-                        defaultValue={row[col]}
-                        className="h-8"
-                        onChange={(e) => {
-                          // Optional: update Jotai atom here if inline edit needs persistence
-                          // You can also debounce or sync changes later
-                        }}
-                      />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </ScrollArea>
-      </CardContent>
-    </Card>
+    <div className="mt-6 border rounded">
+      <h2 className="text-xl font-semibold capitalize mb-2">{entity} Data</h2>
+      <DataGrid
+        columns={columns}
+        rows={rows}
+        onRowsChange={onRowsChange}
+        className="rdg-light"
+      />
+    </div>
   );
 }
