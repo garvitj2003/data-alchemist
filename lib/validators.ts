@@ -7,6 +7,7 @@ import {
 import { normalizeRowTypes } from "@/utils/normalizeData";
 import { clientSchema, workerSchema, taskSchema } from "@/validators/schemas";
 import { z } from "zod";
+import { checkDuplicateIDs } from "./checkDuplicateIDs";
 
 // Map entityType to its Zod schema
 const getSchemaForEntity = (
@@ -54,7 +55,30 @@ export function validateAllFiles(files: parsedFile[]): ValidationErrors {
     }
   }
 
-  // Step 2: Cross-entity validation
+  for (const file of files) {
+    const { entityType, rawData } = file;
+
+    // Determine ID field per entity
+    const idField =
+      entityType === "clients"
+        ? "ClientID"
+        : entityType === "workers"
+        ? "WorkerID"
+        : "TaskID";
+
+    const duplicates = checkDuplicateIDs(rawData, idField);
+
+    if (!allErrors[entityType]) allErrors[entityType] = {};
+    for (const rowIndex in duplicates) {
+      const idx = parseInt(rowIndex);
+      allErrors[entityType][idx] = {
+        ...allErrors[entityType][idx],
+        ...duplicates[rowIndex],
+      };
+    }
+  }
+
+  // Cross-entity validation
   const crossErrors = validateCrossEntityRelations(files);
 
   // Merge cross-entity errors into field errors
@@ -99,7 +123,6 @@ export function validateSingleRow(
     allFiles &&
     (entity === "clients" || entity === "tasks" || entity === "workers")
   ) {
-    
     const crossErrors = validateSingleRowCrossRelations(
       entity,
       normalizedRow,
@@ -126,7 +149,7 @@ export function validateCrossEntityRelations(
   const workerSkills = new Set(workers.flatMap((w) => w.Skills));
   const validPhases = new Set([1, 2, 3, 4, 5, 6]); // Define your actual phases if needed
 
-  // Clients → Tasks: Check RequestedTaskIDs
+  // Clients - Tasks: Check RequestedTaskIDs
   clients.forEach((client, rowIdx) => {
     const errorsForRow: Record<string, string> = {};
     for (const taskId of client.RequestedTaskIDs ?? []) {
@@ -141,7 +164,7 @@ export function validateCrossEntityRelations(
     }
   });
 
-  // Tasks → Workers: RequiredSkills must be covered by at least one worker
+  // Tasks - Workers: RequiredSkills must be covered by at least one worker
   tasks.forEach((task, rowIdx) => {
     const required = task.RequiredSkills ?? [];
     const missing = required.filter(
@@ -155,7 +178,7 @@ export function validateCrossEntityRelations(
     }
   });
 
-  // Workers → Phases: AvailableSlots must be within valid phase numbers
+  // Workers - Phases: AvailableSlots must be within valid phase numbers
   workers.forEach((worker, rowIdx) => {
     const invalidSlots = (worker.AvailableSlots ?? []).filter(
       (slot: number) => !validPhases.has(slot)
@@ -164,6 +187,19 @@ export function validateCrossEntityRelations(
       errors["workers"] ??= {};
       errors["workers"][rowIdx] = {
         AvailableSlots: `Invalid phase slots: ${invalidSlots.join(", ")}`,
+      };
+    }
+  });
+  // Workers - Overload check: AvailableSlots.length < MaxLoadPerPhase
+  workers.forEach((worker, rowIdx) => {
+    const availableSlotCount = (worker.AvailableSlots ?? []).length;
+    const maxLoad = worker.MaxLoadPerPhase ?? 0;
+
+    if (availableSlotCount < maxLoad) {
+      errors["workers"] ??= {};
+      errors["workers"][rowIdx] = {
+        ...(errors["workers"]?.[rowIdx] || {}),
+        MaxLoadPerPhase: `Worker is overloaded: AvailableSlots (${availableSlotCount}) < MaxLoadPerPhase (${maxLoad})`,
       };
     }
   });
@@ -213,6 +249,17 @@ function validateSingleRowCrossRelations(
     );
     if (invalid.length > 0) {
       errors.AvailableSlots = `Invalid phase slots: ${invalid.join(", ")}`;
+    }
+    const availableCount = Array.isArray(row.AvailableSlots)
+      ? row.AvailableSlots.length
+      : 0;
+
+    const maxLoad = Number(row.MaxLoadPerPhase ?? 0);
+
+    if (availableCount < maxLoad) {
+      errors.MaxLoadPerPhase = `Worker has only ${availableCount} available slot${
+        availableCount !== 1 ? "s" : ""
+      }, but MaxLoadPerPhase is ${maxLoad}`;
     }
   }
 
