@@ -1,22 +1,43 @@
-import { parsedFile, EntityType, ValidationErrors } from "@/store/uploadAtoms";
+import {
+  parsedFile,
+  EntityType,
+  ValidationErrors,
+  RowErrorMap,
+} from "@/store/uploadAtoms";
+import { normalizeRowTypes } from "@/utils/normalizeData";
 import { clientSchema, workerSchema, taskSchema } from "@/validators/schemas";
 import { z } from "zod";
 
+// Helper: Map entityType to its corresponding schema
+const getSchemaForEntity = (
+  entityType: EntityType
+): z.ZodSchema | undefined => {
+  switch (entityType) {
+    case "clients":
+      return clientSchema;
+    case "workers":
+      return workerSchema;
+    case "tasks":
+      return taskSchema;
+    default:
+      return undefined;
+  }
+};
+
+// Validate all rows from all files (used on "Validate & Continue")
 export function validateAllFiles(files: parsedFile[]): ValidationErrors {
   const allErrors: ValidationErrors = {};
 
   for (const { entityType, rawData } of files) {
-    let schema: z.ZodSchema | undefined;
-
-    if (entityType === "clients") schema = clientSchema;
-    if (entityType === "workers") schema = workerSchema;
-    if (entityType === "tasks") schema = taskSchema;
+    const schema = getSchemaForEntity(entityType);
     if (!schema) continue;
 
-    const entityErrors: Record<number, Record<string, string>> = {};
+    const entityErrors: RowErrorMap = {};
 
-    rawData.forEach((row, rowIndex) => {
-      const result = schema.safeParse(row);
+    rawData.forEach((rawRow, rowIndex) => {
+      const normalizedRow = normalizeRowTypes(entityType, rawRow); // 🧠 Normalize BEFORE validating
+      const result = schema.safeParse(normalizedRow);
+
       if (!result.success) {
         for (const issue of result.error.issues) {
           const field = issue.path[0] as string;
@@ -34,4 +55,26 @@ export function validateAllFiles(files: parsedFile[]): ValidationErrors {
   }
 
   return allErrors;
+}
+
+// Validate a single row (used on cell edit or row update)
+export function validateSingleRow(
+  entity: EntityType,
+  rawRow: Record<string, any>
+): Record<string, string> {
+  const normalizedRow = normalizeRowTypes(entity, rawRow);
+  const schema = getSchemaForEntity(entity);
+  if (!schema) return {};
+
+  const result = schema.safeParse(normalizedRow);
+
+  const errors: Record<string, string> = {};
+  if (!result.success) {
+    for (const issue of result.error.issues) {
+      const field = issue.path[0] as string;
+      errors[field] = issue.message;
+    }
+  }
+
+  return errors;
 }
