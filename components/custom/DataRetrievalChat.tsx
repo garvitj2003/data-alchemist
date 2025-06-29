@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { uploadedFilesAtom, EntityType } from "@/store/uploadAtoms";
 import { dataRetrieval } from "@/app/actions/dataRetrieval";
 import { useAIModifyTable } from "@/hooks/useAiDataModification";
+import { useAIRulesCreation } from "@/hooks/useAiRulesCreation";
+import PendingRulesDisplay from "./PendingRulesDisplay";
 
 type Message = {
   id: string;
@@ -50,7 +52,11 @@ export default function DataRetrievalChat({
     return "clients";
   };
 
-  // Use data modification hook for the current entity
+  // Use data modification hook for the current entity or rules
+  const entityModification = useAIModifyTable(getCurrentEntity());
+  const rulesModification = useAIRulesCreation();
+
+  // Choose the appropriate modification hook based on current tab
   const {
     runAIModification,
     applyChanges,
@@ -59,11 +65,10 @@ export default function DataRetrievalChat({
     aiMessage,
     hasChanges,
     pendingChanges,
-  } = useAIModifyTable(getCurrentEntity());
+  } = currentTab === "rules" ? rulesModification : entityModification;
 
   // Check if current tab should disable data modification
-  const isDataModificationDisabled =
-    currentTab === "priorites" || currentTab === "rules";
+  const isDataModificationDisabled = currentTab === "priorities";
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -111,6 +116,8 @@ export default function DataRetrievalChat({
     const initialMessage =
       chatMode === "retrieval"
         ? "Hello! I'm ready to help you analyze your data. What would you like to know about your clients, workers, and tasks?"
+        : currentTab === "rules"
+        ? "Hello! I'm ready to help you create and modify rules using natural language. Tell me what kind of rule you'd like to create or modify."
         : `Hello! I'm ready to help you modify your ${getCurrentEntity()} data. Tell me what changes you'd like to make and I'll help you implement them.`;
 
     setMessages([
@@ -247,7 +254,9 @@ export default function DataRetrievalChat({
         {chatMode === "modification" && !isDataModificationDisabled && (
           <div className="text-xs text-muted-foreground">
             Currently modifying:{" "}
-            <span className="font-medium capitalize">{getCurrentEntity()}</span>
+            <span className="font-medium capitalize">
+              {currentTab === "rules" ? "Rules" : getCurrentEntity()}
+            </span>
           </div>
         )}
         {isDataModificationDisabled && chatMode === "modification" && (
@@ -302,8 +311,8 @@ export default function DataRetrievalChat({
                     <div
                       className={`max-w-[85%] px-4 py-3 ${
                         message.role === "user"
-                          ? "bg-blue-500 text-white shadow-sm"
-                          : "bg-transparent text-foreground border border-border/20"
+                          ? "bg-blue-500/20 text-foreground rounded shadow-sm"
+                          : "bg-secondary/20 rounded text-foreground border border-border/20"
                       }`}
                     >
                       <div className="whitespace-pre-wrap text-sm leading-relaxed">
@@ -324,25 +333,32 @@ export default function DataRetrievalChat({
           {chatMode === "modification" && (aiMessage || hasChanges) && (
             <div className="flex-shrink-0 px-4 pb-2 space-y-2">
               {aiMessage && (
-                <div className="p-3 bg-blue-50/50 border border-blue-200/50 text-sm">
-                  <p className="text-blue-800 font-medium">AI Response:</p>
-                  <p className="text-blue-700 mt-1">{aiMessage}</p>
+                <div className="p-3 bg-secondary rounded border border-blue-200/50 text-sm">
+                  <p className="text-foreground font-medium">AI Response:</p>
+                  <p className="text-foreground/80 mt-1">{aiMessage}</p>
                 </div>
               )}
 
               {hasChanges && (
-                <div className="p-3 bg-yellow-50/50 border border-yellow-200/50">
+                <div className="p-3 bg-none rounded border border-secondary">
                   <div className="flex items-center justify-between">
-                    <div>
+                    <div className="flex-1">
                       <p className="text-yellow-800 text-sm font-medium">
-                        Changes pending for {getCurrentEntity()}
+                        Changes pending for{" "}
+                        {currentTab === "rules" ? "Rules" : getCurrentEntity()}
                       </p>
-                      <p className="text-yellow-700 text-xs mt-1">
-                        Review changes in the data table and accept or reject
-                        them.
+                      <p className="text-yellow-700 text-xs mt-1 mb-3">
+                        {currentTab === "rules"
+                          ? "Review the new rules and accept or reject them."
+                          : "Review changes in the data table and accept or reject them."}
                       </p>
+
+                      {/* Show pending rules in a nice format */}
+                      {currentTab === "rules" && pendingChanges && (
+                        <PendingRulesDisplay pendingRules={pendingChanges} />
+                      )}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 ml-4">
                       <Button
                         onClick={rejectChanges}
                         variant="outline"
@@ -375,6 +391,8 @@ export default function DataRetrievalChat({
                 placeholder={
                   chatMode === "retrieval"
                     ? "Ask me anything about your data..."
+                    : currentTab === "rules"
+                    ? "Tell me what kind of rule you want to create..."
                     : `Tell me what changes to make to ${getCurrentEntity()}...`
                 }
                 disabled={isLoading || modificationLoading}
