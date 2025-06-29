@@ -14,7 +14,6 @@ import {
 } from "@/store/uploadAtoms";
 import { validateSingleRow } from "@/lib/validators";
 import { normalizeRowTypes } from "@/utils/normalizeData";
-import AIQueryComponent from "@/components/ai/AIQueryComponent";
 import { useAIModifyTable } from "@/hooks/useAiDataModification";
 
 type EntityTableProps = {
@@ -140,13 +139,12 @@ export default function EntityTable({
   // If no data found, show message
   if (!fileData || !fileData.rawData || fileData.rawData.length === 0) {
     return (
-      <div className="p-8 text-center">
-        <div className="text-gray-500 text-lg">
-          No data found for{" "}
-          <span className="font-semibold capitalize">{entity}</span>
+      <div className="p-12 text-center">
+        <div className="text-gray-900 dark:text-white text-lg">
+          No data available
         </div>
-        <p className="text-gray-400 text-sm mt-2">
-          Please upload and parse a CSV file for this entity type.
+        <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
+          Upload a CSV file to get started
         </p>
       </div>
     );
@@ -168,11 +166,11 @@ export default function EntityTable({
         return (
           <input
             className={`
-            w-full h-full px-2 border-none outline-none bg-white
+            w-full h-full px-3 py-2 border-none outline-none bg-transparent text-gray-900 dark:text-white text-sm
             ${
               hasError
-                ? "bg-red-50 border-2 border-red-400"
-                : "focus:bg-blue-50"
+                ? "bg-red-50 border-l-2 border-red-400"
+                : "focus:bg-blue-50 focus:ring-1 focus:ring-blue-300"
             }
           `}
             value={props.row[columnKey] || ""}
@@ -224,7 +222,7 @@ export default function EntityTable({
         return (
           <div
             className={`
-              w-full h-full flex flex-col justify-center px-2 relative
+              w-full h-full flex flex-col justify-center px-3 py-2 relative bg-transparent hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors
               ${hasError ? "bg-red-50 border-l-2 border-red-400" : ""}
               ${
                 hasPendingChange
@@ -248,16 +246,16 @@ export default function EntityTable({
               {hasPendingChange ? (
                 <div className="flex-1 overflow-hidden">
                   {/* Current value (smaller, grayed out) */}
-                  <div className="text-xs text-gray-400 line-through truncate">
+                  <div className="text-xs text-gray-400 dark:text-gray-500 line-through truncate">
                     Current: {displayValue || "(empty)"}
                   </div>
                   {/* Pending value (highlighted in gray until accepted) */}
-                  <div className="text-sm text-gray-600 font-medium truncate bg-gray-100 px-1 rounded">
+                  <div className="text-sm text-gray-700 dark:text-gray-300 font-medium truncate bg-yellow-100 dark:bg-yellow-900/50 px-2 py-1 rounded">
                     Pending: {pendingDisplayValue}
                   </div>
                 </div>
               ) : (
-                <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
+                <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-gray-900 dark:text-white text-sm">
                   {displayValue}
                 </span>
               )}
@@ -267,7 +265,7 @@ export default function EntityTable({
                 {/* Pending change indicator */}
                 {hasPendingChange && (
                   <div
-                    className="w-3 h-3 bg-yellow-500 rounded-full cursor-help animate-pulse"
+                    className="w-2 h-2 bg-yellow-500 rounded-full cursor-help"
                     title={`Pending AI change: ${pendingDisplayValue}`}
                   />
                 )}
@@ -277,7 +275,7 @@ export default function EntityTable({
                   <>
                     {hasError && fixCell ? (
                       <button
-                        className="text-xs text-blue-500 underline hover:text-blue-700"
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium bg-blue-100 dark:bg-blue-900/50 px-2 py-1 rounded"
                         onClick={() => {
                           // Apply the fix to the current row
                           const updatedRow = { ...props.row, [columnKey]: fix };
@@ -311,8 +309,8 @@ export default function EntityTable({
                         Fix
                       </button>
                     ) : (
-                      <span className="text-xs text-green-600 font-medium bg-green-100 px-1 rounded">
-                        Modified with AI
+                      <span className="text-xs text-green-700 dark:text-green-400 font-medium bg-green-100 dark:bg-green-900/50 px-2 py-1 rounded">
+                        AI Fixed
                       </span>
                     )}
                   </>
@@ -321,7 +319,7 @@ export default function EntityTable({
                 {/* Error indicator */}
                 {hasError && (
                   <div
-                    className="w-3 h-3 bg-red-500 rounded-full cursor-help"
+                    className="w-2 h-2 bg-red-500 rounded-full cursor-help"
                     title={hasError}
                   />
                 )}
@@ -332,21 +330,21 @@ export default function EntityTable({
             {(hasPendingChange || isAIModified || hasAIFix) && (
               <div className="flex items-center gap-1 mt-1">
                 {hasPendingChange && (
-                  <span className="text-xs bg-gray-200 text-gray-700 px-1 py-0.5 rounded text-center">
-                    Awaiting Acceptance
+                  <span className="text-xs bg-yellow-200 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300 px-2 py-0.5 rounded">
+                    Pending
                   </span>
                 )}
                 {isAIModified && !hasPendingChange && (
-                  <span className="text-xs bg-green-200 text-green-700 px-1 py-0.5 rounded">
-                    Modified with AI
+                  <span className="text-xs bg-green-200 dark:bg-green-900/50 text-green-800 dark:text-green-300 px-2 py-0.5 rounded">
+                    AI Modified
                   </span>
                 )}
                 {hasAIFix &&
                   !hasError &&
                   !isAIModified &&
                   !hasPendingChange && (
-                    <span className="text-xs bg-blue-200 text-blue-700 px-1 py-0.5 rounded">
-                      AI Fix Available
+                    <span className="text-xs bg-blue-200 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded">
+                      Fix Available
                     </span>
                   )}
               </div>
@@ -404,149 +402,33 @@ export default function EntityTable({
     );
   };
 
-  // Count total errors for this entity
-  const entityErrors = errors[entity] || {};
-  const totalErrors = Object.values(entityErrors).reduce(
-    (sum, rowErrors) => sum + Object.keys(rowErrors).length,
-    0
-  );
-
-  // Count total available fixes for this entity
-  const totalFixes = fixes ? Object.keys(fixes).length : 0;
-
-  // Handle fixing all cells with available fixes
-  const handleFixAll = () => {
-    if (!fixes || !fixCell) return;
-
-    // Apply all fixes
-    const updatedRows = [...rows];
-    const rowsToValidate: number[] = [];
-
-    Object.entries(fixes).forEach(([rowIdxStr, rowFixes]) => {
-      const rowIdx = parseInt(rowIdxStr);
-      if (rowIdx >= 0 && rowIdx < updatedRows.length) {
-        // Apply all fixes for this row
-        Object.entries(rowFixes).forEach(([columnKey, fixValue]) => {
-          updatedRows[rowIdx] = {
-            ...updatedRows[rowIdx],
-            [columnKey]: fixValue,
-          };
-        });
-
-        // Normalize the row
-        updatedRows[rowIdx] = normalizeRowTypes(entity, updatedRows[rowIdx]);
-        rowsToValidate.push(rowIdx);
-      }
-    });
-
-    // Update the file data in the atom
-    setFiles((prevFiles) =>
-      prevFiles.map((file) =>
-        file.entityType === entity ? { ...file, rawData: updatedRows } : file
-      )
-    );
-
-    // Run immediate validation for all updated rows (not debounced)
-    const newErrors = { ...errors };
-
-    rowsToValidate.forEach((rowIdx) => {
-      const rowErrors = validateSingleRow(entity, updatedRows[rowIdx], files);
-
-      // Initialize entity errors if not exists
-      if (!newErrors[entity]) {
-        newErrors[entity] = {};
-      }
-
-      // Update/remove row errors
-      if (Object.keys(rowErrors).length === 0) {
-        // No errors - remove this row's errors completely
-        if (newErrors[entity]![rowIdx]) {
-          delete newErrors[entity]![rowIdx];
-        }
-      } else {
-        // Has errors - set new errors for this row
-        newErrors[entity]![rowIdx] = rowErrors;
-      }
-    });
-
-    // If no more errors for this entity, remove entity key
-    if (newErrors[entity] && Object.keys(newErrors[entity]).length === 0) {
-      delete newErrors[entity];
-    }
-
-    // Update validation errors atom immediately
-    setErrors(newErrors);
-
-    // Call fixCell for each fix (for any additional logic)
-    Object.entries(fixes).forEach(([rowIdxStr, rowFixes]) => {
-      const rowIdx = parseInt(rowIdxStr);
-      Object.entries(rowFixes).forEach(([columnKey, fixValue]) => {
-        fixCell(entity, rowIdx, columnKey, fixValue);
-      });
-    });
-  };
-
   return (
     <div className="w-full">
-      {/* Header */}
-      <div className="mb-4 p-4 bg-gray-50 rounded-t-lg border-b">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-800 capitalize">
-              {entity} Data
-            </h2>
-            <p className="text-sm text-gray-600 mt-1">
-              {rows.length} rows • {columns.length} columns
-            </p>
-          </div>
-
-          {/* Error badge */}
-          {totalErrors > 0 && (
-            <div className="flex items-center gap-2">
-              <div className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
-                {totalErrors} validation error{totalErrors !== 1 ? "s" : ""}
-              </div>
-
-              {/* Fix All button */}
-              {totalFixes > 0 && fixCell && (
-                <button
-                  onClick={handleFixAll}
-                  className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium hover:bg-blue-600 transition-colors"
-                >
-                  Fix All ({totalFixes})
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        <p className="text-xs text-gray-500 mt-2">
-          Double-click any cell to edit. Red highlighting indicates validation
-          errors.
-        </p>
-      </div>
-
-      {/* AI Query Component */}
-      <div className="mb-4">
-        <AIQueryComponent entity={entity} />
+      {/* Simple instruction */}
+      <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+        Double click to edit cell
       </div>
 
       {/* Data Grid */}
-      <div className="border rounded-b-lg overflow-hidden shadow-sm">
-        <DataGrid
-          columns={columns}
-          rows={rows}
-          onRowsChange={handleRowsChange}
-          rowKeyGetter={rowKeyGetter}
-          className="rdg-light"
-          rowHeight={60}
-          headerRowHeight={40}
-          defaultColumnOptions={{
-            sortable: true,
-            resizable: true,
-          }}
-        />
-      </div>
+
+      <DataGrid
+        columns={columns}
+        rows={rows}
+        onRowsChange={handleRowsChange}
+        rowKeyGetter={rowKeyGetter}
+        className="rdg-light dark:rdg-dark"
+        style={
+          {
+            "--rdg-background-color": "transparent",
+            "--rdg-header-background-color": "rgba(248, 250, 252, 0.8)",
+            "--rdg-row-hover-background-color": "rgba(241, 245, 249, 0.5)",
+            "--rdg-row-selected-background-color": "rgba(224, 242, 254, 0.8)",
+            "--rdg-border-color": "#e2e8f0",
+            "--rdg-summary-border-color": "#e2e8f0",
+            "--rdg-cell-frozen-background-color": "transparent",
+          } as React.CSSProperties
+        }
+      />
     </div>
   );
 }
