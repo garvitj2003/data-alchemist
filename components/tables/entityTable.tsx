@@ -10,12 +10,22 @@ import {
   EntityType,
   parsedFile,
   ValidationErrors,
+  aiModificationsAtom,
 } from "@/store/uploadAtoms";
 import { validateSingleRow } from "@/lib/validators";
 import { normalizeRowTypes } from "@/utils/normalizeData";
+import AIQueryComponent from "@/components/ai/AIQueryComponent";
+import { useAIModifyTable } from "@/hooks/useAiDataModification";
 
 type EntityTableProps = {
   entity: EntityType;
+  fixes?: Record<string, Record<string, any>>; // EntityName → rowIdx → { field: value }
+  fixCell?: (
+    entity: EntityType,
+    rowIdx: number,
+    key: string,
+    value: any
+  ) => void;
 };
 
 // Custom cell renderer to show validation errors
@@ -55,9 +65,17 @@ function CellRenderer({
   );
 }
 
-export default function EntityTable({ entity }: EntityTableProps) {
+export default function EntityTable({
+  entity,
+  fixes,
+  fixCell,
+}: EntityTableProps) {
   const [files, setFiles] = useAtom(uploadedFilesAtom);
   const [errors, setErrors] = useAtom(validationErrorsAtom);
+  const [aiModifications] = useAtom(aiModificationsAtom);
+
+  // Get pending changes from AI modification hook
+  const { pendingChanges } = useAIModifyTable(entity);
 
   // Debounce timer ref for validation
   const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -181,26 +199,157 @@ export default function EntityTable({ entity }: EntityTableProps) {
         const hasError = errors[entity]?.[props.rowIdx]?.[columnKey];
         const value = props.row[columnKey];
 
+        // Check for pending AI changes (before acceptance)
+        const pendingChange = pendingChanges?.[props.rowIdx]?.[columnKey];
+        const hasPendingChange = pendingChange !== undefined;
+
+        // Check if this cell was modified by AI (after acceptance)
+        const isAIModified =
+          aiModifications[entity]?.[props.rowIdx]?.[columnKey] === true;
+
         const displayValue =
           typeof value === "object" && value !== null
             ? JSON.stringify(value)
             : value ?? "";
 
+        const pendingDisplayValue = hasPendingChange
+          ? typeof pendingChange === "object" && pendingChange !== null
+            ? JSON.stringify(pendingChange)
+            : pendingChange ?? ""
+          : "";
+
+        const fix = fixes?.[props.rowIdx]?.[columnKey];
+        const hasAIFix = fix !== undefined;
+
         return (
           <div
             className={`
-        w-full h-full flex items-center px-2 relative
-        ${hasError ? "bg-red-50 border-l-2 border-red-400" : ""}
-      `}
+              w-full h-full flex flex-col justify-center px-2 relative
+              ${hasError ? "bg-red-50 border-l-2 border-red-400" : ""}
+              ${
+                hasPendingChange
+                  ? "bg-yellow-50 border-l-2 border-yellow-400"
+                  : ""
+              }
+              ${
+                isAIModified && !hasPendingChange
+                  ? "bg-green-50 border-l-2 border-green-400"
+                  : ""
+              }
+              ${
+                hasAIFix && !hasError && !hasPendingChange && !isAIModified
+                  ? "bg-blue-50 border-l-2 border-blue-400"
+                  : ""
+              }
+            `}
           >
-            <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
-              {displayValue}
-            </span>
-            {hasError && (
-              <div
-                className="w-3 h-3 bg-red-500 rounded-full ml-2 flex-shrink-0 cursor-help"
-                title={hasError}
-              />
+            {/* Main content area */}
+            <div className="flex items-center justify-between">
+              {hasPendingChange ? (
+                <div className="flex-1 overflow-hidden">
+                  {/* Current value (smaller, grayed out) */}
+                  <div className="text-xs text-gray-400 line-through truncate">
+                    Current: {displayValue || "(empty)"}
+                  </div>
+                  {/* Pending value (highlighted in gray until accepted) */}
+                  <div className="text-sm text-gray-600 font-medium truncate bg-gray-100 px-1 rounded">
+                    Pending: {pendingDisplayValue}
+                  </div>
+                </div>
+              ) : (
+                <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
+                  {displayValue}
+                </span>
+              )}
+
+              {/* Status indicators and actions */}
+              <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                {/* Pending change indicator */}
+                {hasPendingChange && (
+                  <div
+                    className="w-3 h-3 bg-yellow-500 rounded-full cursor-help animate-pulse"
+                    title={`Pending AI change: ${pendingDisplayValue}`}
+                  />
+                )}
+
+                {/* AI Fix button or status */}
+                {hasAIFix && !isAIModified && (
+                  <>
+                    {hasError && fixCell ? (
+                      <button
+                        className="text-xs text-blue-500 underline hover:text-blue-700"
+                        onClick={() => {
+                          // Apply the fix to the current row
+                          const updatedRow = { ...props.row, [columnKey]: fix };
+                          const normalizedRow = normalizeRowTypes(
+                            entity,
+                            updatedRow
+                          );
+
+                          // Update the file data in the atom
+                          setFiles((prevFiles) =>
+                            prevFiles.map((file) =>
+                              file.entityType === entity
+                                ? {
+                                    ...file,
+                                    rawData: file.rawData.map((row, idx) =>
+                                      idx === props.rowIdx ? normalizedRow : row
+                                    ),
+                                  }
+                                : file
+                            )
+                          );
+
+                          // Trigger validation for this row
+                          debouncedValidation(props.rowIdx, normalizedRow);
+
+                          // Call the original fixCell function if needed for any additional logic
+                          fixCell(entity, props.rowIdx, columnKey, fix);
+                        }}
+                        title={`AI suggestion: ${JSON.stringify(fix)}`}
+                      >
+                        Fix
+                      </button>
+                    ) : (
+                      <span className="text-xs text-green-600 font-medium bg-green-100 px-1 rounded">
+                        Modified with AI
+                      </span>
+                    )}
+                  </>
+                )}
+
+                {/* Error indicator */}
+                {hasError && (
+                  <div
+                    className="w-3 h-3 bg-red-500 rounded-full cursor-help"
+                    title={hasError}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Additional status tags */}
+            {(hasPendingChange || isAIModified || hasAIFix) && (
+              <div className="flex items-center gap-1 mt-1">
+                {hasPendingChange && (
+                  <span className="text-xs bg-gray-200 text-gray-700 px-1 py-0.5 rounded text-center">
+                    Awaiting Acceptance
+                  </span>
+                )}
+                {isAIModified && !hasPendingChange && (
+                  <span className="text-xs bg-green-200 text-green-700 px-1 py-0.5 rounded">
+                    Modified with AI
+                  </span>
+                )}
+                {hasAIFix &&
+                  !hasError &&
+                  !isAIModified &&
+                  !hasPendingChange && (
+                    <span className="text-xs bg-blue-200 text-blue-700 px-1 py-0.5 rounded">
+                      AI Fix Available
+                    </span>
+                  )}
+              </div>
             )}
           </div>
         );
@@ -262,6 +411,81 @@ export default function EntityTable({ entity }: EntityTableProps) {
     0
   );
 
+  // Count total available fixes for this entity
+  const totalFixes = fixes ? Object.keys(fixes).length : 0;
+
+  // Handle fixing all cells with available fixes
+  const handleFixAll = () => {
+    if (!fixes || !fixCell) return;
+
+    // Apply all fixes
+    const updatedRows = [...rows];
+    const rowsToValidate: number[] = [];
+
+    Object.entries(fixes).forEach(([rowIdxStr, rowFixes]) => {
+      const rowIdx = parseInt(rowIdxStr);
+      if (rowIdx >= 0 && rowIdx < updatedRows.length) {
+        // Apply all fixes for this row
+        Object.entries(rowFixes).forEach(([columnKey, fixValue]) => {
+          updatedRows[rowIdx] = {
+            ...updatedRows[rowIdx],
+            [columnKey]: fixValue,
+          };
+        });
+
+        // Normalize the row
+        updatedRows[rowIdx] = normalizeRowTypes(entity, updatedRows[rowIdx]);
+        rowsToValidate.push(rowIdx);
+      }
+    });
+
+    // Update the file data in the atom
+    setFiles((prevFiles) =>
+      prevFiles.map((file) =>
+        file.entityType === entity ? { ...file, rawData: updatedRows } : file
+      )
+    );
+
+    // Run immediate validation for all updated rows (not debounced)
+    const newErrors = { ...errors };
+
+    rowsToValidate.forEach((rowIdx) => {
+      const rowErrors = validateSingleRow(entity, updatedRows[rowIdx], files);
+
+      // Initialize entity errors if not exists
+      if (!newErrors[entity]) {
+        newErrors[entity] = {};
+      }
+
+      // Update/remove row errors
+      if (Object.keys(rowErrors).length === 0) {
+        // No errors - remove this row's errors completely
+        if (newErrors[entity]![rowIdx]) {
+          delete newErrors[entity]![rowIdx];
+        }
+      } else {
+        // Has errors - set new errors for this row
+        newErrors[entity]![rowIdx] = rowErrors;
+      }
+    });
+
+    // If no more errors for this entity, remove entity key
+    if (newErrors[entity] && Object.keys(newErrors[entity]).length === 0) {
+      delete newErrors[entity];
+    }
+
+    // Update validation errors atom immediately
+    setErrors(newErrors);
+
+    // Call fixCell for each fix (for any additional logic)
+    Object.entries(fixes).forEach(([rowIdxStr, rowFixes]) => {
+      const rowIdx = parseInt(rowIdxStr);
+      Object.entries(rowFixes).forEach(([columnKey, fixValue]) => {
+        fixCell(entity, rowIdx, columnKey, fixValue);
+      });
+    });
+  };
+
   return (
     <div className="w-full">
       {/* Header */}
@@ -278,8 +502,20 @@ export default function EntityTable({ entity }: EntityTableProps) {
 
           {/* Error badge */}
           {totalErrors > 0 && (
-            <div className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
-              {totalErrors} validation error{totalErrors !== 1 ? "s" : ""}
+            <div className="flex items-center gap-2">
+              <div className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
+                {totalErrors} validation error{totalErrors !== 1 ? "s" : ""}
+              </div>
+
+              {/* Fix All button */}
+              {totalFixes > 0 && fixCell && (
+                <button
+                  onClick={handleFixAll}
+                  className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium hover:bg-blue-600 transition-colors"
+                >
+                  Fix All ({totalFixes})
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -290,6 +526,11 @@ export default function EntityTable({ entity }: EntityTableProps) {
         </p>
       </div>
 
+      {/* AI Query Component */}
+      <div className="mb-4">
+        <AIQueryComponent entity={entity} />
+      </div>
+
       {/* Data Grid */}
       <div className="border rounded-b-lg overflow-hidden shadow-sm">
         <DataGrid
@@ -298,7 +539,7 @@ export default function EntityTable({ entity }: EntityTableProps) {
           onRowsChange={handleRowsChange}
           rowKeyGetter={rowKeyGetter}
           className="rdg-light"
-          rowHeight={40}
+          rowHeight={60}
           headerRowHeight={40}
           defaultColumnOptions={{
             sortable: true,

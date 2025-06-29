@@ -21,15 +21,30 @@ export type ValidationErrors = {
   [entity in EntityType]?: RowErrorMap;
 };
 
+// AI modifications tracking
+export type AIModificationMap = {
+  [rowIndex: number]: {
+    [fieldName: string]: boolean; // true = modified by AI
+  };
+};
+
+export type AIModifications = {
+  [entity in EntityType]?: AIModificationMap;
+};
 
 export const uploadedFilesAtom = atomWithStorage<parsedFile[]>(
   "uploaded-files",
   []
 );
 
-
 export const validationErrorsAtom = atomWithStorage<ValidationErrors>(
   "validation-errors",
+  {}
+);
+
+// Track AI modifications
+export const aiModificationsAtom = atomWithStorage<AIModifications>(
+  "ai-modifications",
   {}
 );
 
