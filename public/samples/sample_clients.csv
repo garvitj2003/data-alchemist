@@ -1,0 +1,4 @@
+ClientID,ClientName,PriorityLevel,RequestedTaskIDs,GroupTag,AttributesJSON
+C001,Acme Corp,High,"T001,T003",Enterprise,"{""region"":""North"",""size"":""Large""}"
+C002,Beta LLC,Medium,"T002,T004",SMB,"{""region"":""South"",""size"":""Medium""}"
+C003,Gamma Inc,Low,T005,Startup,"{""region"":""West"",""size"":""Small""}" 

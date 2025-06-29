@@ -1,0 +1,4 @@
+TaskID,TaskName,Category,Duration,RequiredSkills,PreferredPhases,MaxConcurrent
+T001,Data Cleaning,Preprocessing,4,"Python,Data Analysis","1,2",2
+T002,Database Setup,Infrastructure,6,"SQL,Database","1,3",1
+T003,Model Training,AI,8,"Machine Learning,Python","2,3,4",3 

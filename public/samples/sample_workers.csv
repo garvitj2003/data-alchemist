@@ -1,0 +1,4 @@
+WorkerID,WorkerName,Skills,AvailableSlots,MaxLoadPerPhase,WorkerGroup,QualificationLevel
+W001,Alice Johnson,"Python,Data Analysis",8,3,Analytics,Senior
+W002,Bob Smith,"SQL,Database",6,2,Database,Junior
+W003,Carol Davis,"Machine Learning,Python",10,4,AI,Expert 
