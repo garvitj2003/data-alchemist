@@ -8,6 +8,7 @@ import { useAIValidationFix } from "@/hooks/useAiValidationFix";
 import DataRetrievalChat from "@/components/custom/DataRetrievalChat";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import ThemeToggle from "@/components/themeToggle";
+import ExportButton from "@/components/export/ExportButton";
 import { useState } from "react";
 import {
   Bot,
@@ -46,6 +47,9 @@ export default function ValidatePage() {
 
                 {/* Controls moved from navbar */}
                 <div className="flex items-center space-x-4">
+                  {/* Export buttons */}
+                  <ExportButton />
+
                   {/* Global Fix button */}
                   {hasErrors && (
                     <Button
@@ -73,35 +77,35 @@ export default function ValidatePage() {
                   <TabsList className="bg-muted/50 backdrop-blur-sm border shadow-sm h-auto">
                     <TabsTrigger
                       value="clients"
-                      className="flex items-center gap-2 px-4 py-2"
+                      className="flex items-center gap-2 px-4 py-2 hover:bg-background/70 cursor-pointer"
                     >
                       <Users className="w-4 h-4" />
                       Clients
                     </TabsTrigger>
                     <TabsTrigger
                       value="workers"
-                      className="flex items-center gap-2 px-4 py-2"
+                      className="flex items-center gap-2 px-4 py-2 hover:bg-background/70 cursor-pointer"
                     >
                       <Briefcase className="w-4 h-4" />
                       Workers
                     </TabsTrigger>
                     <TabsTrigger
                       value="tasks"
-                      className="flex items-center gap-2 px-4 py-2"
+                      className="flex items-center gap-2 px-4 py-2 hover:bg-background/70 cursor-pointer"
                     >
                       <CheckSquare className="w-4 h-4" />
                       Tasks
                     </TabsTrigger>
                     <TabsTrigger
                       value="rules"
-                      className="flex items-center gap-2 px-4 py-2"
+                      className="flex items-center gap-2 px-4 py-2 hover:bg-background/70 cursor-pointer"
                     >
                       <Settings className="w-4 h-4" />
                       Rules
                     </TabsTrigger>
                     <TabsTrigger
                       value="priorites"
-                      className="flex items-center gap-2 px-4 py-2"
+                      className="flex items-center gap-2 px-4 py-2 hover:bg-background/70 cursor-pointer"
                     >
                       <Settings className="w-4 h-4" />
                       Priorites & weight
@@ -112,45 +116,35 @@ export default function ValidatePage() {
                 {/* Tab Contents */}
                 <div className="mt-6 flex-1 overflow-auto min-w-0">
                   <TabsContent value="clients" className="mt-0">
-                    <div className="bg-card/50 backdrop-blur-sm border shadow-sm p-6 overflow-auto">
-                      <EntityTable
-                        entity="clients"
-                        fixes={fixes["clients"]}
-                        fixCell={fixCell}
-                      />
-                    </div>
+                    <EntityTable
+                      entity="clients"
+                      fixes={fixes["clients"]}
+                      fixCell={fixCell}
+                    />
                   </TabsContent>
 
                   <TabsContent value="workers" className="mt-0">
-                    <div className="bg-card/50 backdrop-blur-sm border shadow-sm p-6 overflow-auto">
-                      <EntityTable
-                        entity="workers"
-                        fixes={fixes["workers"]}
-                        fixCell={fixCell}
-                      />
-                    </div>
+                    <EntityTable
+                      entity="workers"
+                      fixes={fixes["workers"]}
+                      fixCell={fixCell}
+                    />
                   </TabsContent>
 
                   <TabsContent value="tasks" className="mt-0">
-                    <div className="bg-card/50 backdrop-blur-sm border shadow-sm p-6 overflow-auto">
-                      <EntityTable
-                        entity="tasks"
-                        fixes={fixes["tasks"]}
-                        fixCell={fixCell}
-                      />
-                    </div>
+                    <EntityTable
+                      entity="tasks"
+                      fixes={fixes["tasks"]}
+                      fixCell={fixCell}
+                    />
                   </TabsContent>
 
                   <TabsContent value="rules" className="mt-0">
-                    <div className="bg-card/50 backdrop-blur-sm border shadow-sm p-6 overflow-auto">
-                      <RuleBuilder />
-                    </div>
+                    <RuleBuilder />
                   </TabsContent>
 
                   <TabsContent value="priorites" className="mt-0">
-                    <div className="bg-card/50 backdrop-blur-sm border shadow-sm p-6 overflow-auto">
-                      <PrioritizationWeightsForm />
-                    </div>
+                    <PrioritizationWeightsForm />
                   </TabsContent>
                 </div>
               </Tabs>
